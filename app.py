@@ -1,79 +1,80 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-st.title("COVID-19 Data Visualization Dashboard")
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+st.set_page_config(page_title="Global Air Quality Dashboard", layout="wide")
+
+st.title("🌍 Global Air Quality Dashboard")
 st.markdown("""
-This dashboard explores global COVID-19 trends, vaccination progress,
-and their relationship with deaths across countries.
+This dashboard explores global air quality using AQI values and
+major air pollutants across countries and cities.
 """)
+
 @st.cache_data
 def load_data():
-df = pd.read_csv("global air pollution dataset.csv")
-    df['date'] = pd.to_datetime(df['date'])
+    df = pd.read_csv("global air pollution dataset.csv")
     return df
 
 df = load_data()
-countries = df['location'].unique()
-selected_country = st.sidebar.selectbox(
-    "Select a Country",
-    countries,
-    index=list(countries).index("India")
-)
-date_range = st.sidebar.date_input(
-    "Select Date Range",
-    [df['date'].min(), df['date'].max()]
-)
-filtered_df = df[
-    (df['location'] == selected_country) &
-    (df['date'] >= pd.to_datetime(date_range[0])) &
-    (df['date'] <= pd.to_datetime(date_range[1]))
-]
-latest = filtered_df.sort_values('date').iloc[-1]
 
+# ---------------- Sidebar Filters ----------------
+st.sidebar.header("Filters")
+
+country_list = ["All"] + sorted(df["Country"].unique())
+selected_country = st.sidebar.selectbox("Select Country", country_list)
+
+if selected_country != "All":
+    df = df[df["Country"] == selected_country]
+
+# ---------------- KPI Metrics ----------------
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Total Cases", f"{int(latest['total_cases']):,}")
-col2.metric("Total Deaths", f"{int(latest['total_deaths']):,}")
-col3.metric(
-    "Fully Vaccinated (%)",
-    f"{latest['people_fully_vaccinated_per_hundred']:.1f}"
-)
-fig = px.area(
-    filtered_df,
-    x="date",
-    y="total_cases",
-    title="Total COVID-19 Cases Over Time"
-)
+col1.metric("Average AQI", round(df["AQI Value"].mean(), 1))
+col2.metric("Maximum AQI", int(df["AQI Value"].max()))
+col3.metric("Most Common Category", df["AQI Category"].mode()[0])
 
-st.plotly_chart(fig, use_container_width=True)
-latest_all = df.sort_values('date').groupby('location').last().reset_index()
-top10 = latest_all.sort_values(
-    'total_deaths_per_million',
-    ascending=False
-).head(10)
+# ---------------- Visualization 1 ----------------
+st.subheader("Top 10 Cities by Average AQI")
 
-fig2 = px.bar(
-    top10,
-    x="location",
-    y="total_deaths_per_million",
-    title="Top 10 Countries by Deaths per Million"
+top_cities = (
+    df.groupby("City")["AQI Value"]
+    .mean()
+    .sort_values(ascending=False)
+    .head(10)
 )
 
-st.plotly_chart(fig2, use_container_width=True)
-scatter_df = latest_all[
-    ['people_fully_vaccinated_per_hundred', 'total_deaths_per_million']
-].dropna()
+fig, ax = plt.subplots()
+top_cities.plot(kind="bar", ax=ax)
+ax.set_ylabel("Average AQI")
+ax.set_xlabel("City")
+plt.xticks(rotation=45, ha="right")
+st.pyplot(fig)
 
-fig3 = px.scatter(
-    scatter_df,
-    x='people_fully_vaccinated_per_hundred',
-    y='total_deaths_per_million',
-    title="Vaccination Rate vs Deaths per Million"
+# ---------------- Visualization 2 ----------------
+st.subheader("AQI Category Distribution")
+
+fig2, ax2 = plt.subplots()
+df["AQI Category"].value_counts().plot(kind="bar", ax=ax2)
+ax2.set_xlabel("AQI Category")
+ax2.set_ylabel("Count")
+st.pyplot(fig2)
+
+# ---------------- Visualization 3 ----------------
+st.subheader("PM2.5 vs Overall AQI")
+
+fig3, ax3 = plt.subplots()
+sns.scatterplot(
+    data=df,
+    x="PM2.5 AQI Value",
+    y="AQI Value",
+    alpha=0.4,
+    ax=ax3
 )
+ax3.set_xlabel("PM2.5 AQI Value")
+ax3.set_ylabel("Overall AQI Value")
+st.pyplot(fig3)
 
-st.plotly_chart(fig3, use_container_width=True)
-st.subheader("Filtered Data Preview")
-st.dataframe(filtered_df.head(50))
-
-
+# ---------------- Data Preview ----------------
+st.subheader("Dataset Preview")
+st.dataframe(df.head(50))
