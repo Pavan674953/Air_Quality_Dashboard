@@ -14,15 +14,31 @@ major air pollutants across countries and cities.
 @st.cache_data
 def load_data():
     df = pd.read_csv("global air pollution dataset.csv")
+
+    # Fix mixed types + missing values
+    df["Country"] = df["Country"].fillna("Unknown").astype(str).str.strip()
+    df["City"] = df["City"].fillna("Unknown").astype(str).str.strip()
+
+    # Ensure numeric columns are numeric
+    num_cols = ["AQI Value", "PM2.5 AQI Value", "CO AQI Value", "NO2 AQI Value", "Ozone AQI Value"]
+    for c in num_cols:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    # Drop rows where AQI Value is missing after conversion
+    df = df.dropna(subset=["AQI Value"])
+
     return df
+
+
 
 df = load_data()
 
 # ---------------- Sidebar Filters ----------------
 st.sidebar.header("Filters")
 
-country_list = ["All"] + sorted(df["Country"].unique())
+country_list = ["All"] + sorted(df["Country"].unique().tolist())
 selected_country = st.sidebar.selectbox("Select Country", country_list)
+
 
 if selected_country != "All":
     df = df[df["Country"] == selected_country]
@@ -32,7 +48,10 @@ col1, col2, col3 = st.columns(3)
 
 col1.metric("Average AQI", round(df["AQI Value"].mean(), 1))
 col2.metric("Maximum AQI", int(df["AQI Value"].max()))
-col3.metric("Most Common Category", df["AQI Category"].mode()[0])
+
+most_common = df["AQI Category"].mode()
+col3.metric("Most Common Category", most_common.iloc[0] if len(most_common) else "N/A")
+
 
 # ---------------- Visualization 1 ----------------
 st.subheader("Top 10 Cities by Average AQI")
@@ -78,3 +97,4 @@ st.pyplot(fig3)
 # ---------------- Data Preview ----------------
 st.subheader("Dataset Preview")
 st.dataframe(df.head(50))
+
