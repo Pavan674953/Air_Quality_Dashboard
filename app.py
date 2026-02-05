@@ -43,13 +43,6 @@ df_filt = df.copy()
 if selected_country != "All":
     df_filt = df_filt[df_filt["Country"] == selected_country]
 
-# City filter (depends on country selection)
-city_list = ["All"] + sorted(df_filt["City"].dropna().unique().tolist())
-selected_city = st.sidebar.selectbox("Select City", city_list)
-
-if selected_city != "All":
-    df_filt = df_filt[df_filt["City"] == selected_city]
-
 # AQI Category filter
 category_list = ["All"] + sorted(df_filt["AQI Category"].dropna().unique().tolist())
 selected_category = st.sidebar.selectbox("Select AQI Category", category_list)
@@ -147,3 +140,4 @@ else:
 # ---------------- Data Preview ----------------
 st.subheader("Dataset Preview")
 st.dataframe(df_filt.head(50))
+
